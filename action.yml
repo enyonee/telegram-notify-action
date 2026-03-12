@@ -18,8 +18,17 @@ inputs:
   event:
     description: "Event type for header (e.g. CI, K8s tests, deploy)"
     required: false
+  version:
+    description: "App version (e.g. v2.18.0)"
+    required: false
   branch:
     description: "Branch or tag name (default: github.ref_name)"
+    required: false
+  issue:
+    description: "Issue number (e.g. 42). Auto-generates link to GitHub issue"
+    required: false
+  pr:
+    description: "PR number (e.g. 43). Auto-generates link to GitHub PR"
     required: false
   body:
     description: "Main message body (HTML). Placed between header and footer"
@@ -42,13 +51,17 @@ runs:
         STATUS: ${{ inputs.status }}
         PROJECT: ${{ inputs.project }}
         EVENT: ${{ inputs.event }}
+        VERSION: ${{ inputs.version }}
         BRANCH: ${{ inputs.branch }}
+        ISSUE: ${{ inputs.issue }}
+        PR: ${{ inputs.pr }}
         BODY: ${{ inputs.body }}
         CUSTOM_MESSAGE: ${{ inputs.message }}
         CHANGELOG: ${{ inputs.changelog }}
         REPO: ${{ github.repository }}
         REF_NAME: ${{ github.ref_name }}
         ACTOR: ${{ github.actor }}
+        REPO_URL: ${{ github.server_url }}/${{ github.repository }}
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       run: |
         # Full override - backward compat
@@ -66,11 +79,26 @@ runs:
           PROJECT="${PROJECT:-${REPO#*/}}"
           BRANCH="${BRANCH:-$REF_NAME}"
 
-          # Header: icon + project + event
+          # Header: icon + project + version + event
           TEXT="${ICON} <b>${PROJECT}</b>"
+          [ -n "$VERSION" ] && TEXT+=" <code>${VERSION}</code>"
           [ -n "$EVENT" ] && TEXT+=" ${EVENT}"
+
+          # Branch line
           TEXT+=$'\n'
           TEXT+="📌 <code>${BRANCH}</code> by ${ACTOR}"
+
+          # Links line: issue + PR
+          LINKS=""
+          [ -n "$ISSUE" ] && LINKS+="<a href=\"${REPO_URL}/issues/${ISSUE}\">#${ISSUE}</a>"
+          if [ -n "$PR" ]; then
+            [ -n "$LINKS" ] && LINKS+=" · "
+            LINKS+="<a href=\"${REPO_URL}/pull/${PR}\">PR #${PR}</a>"
+          fi
+          if [ -n "$LINKS" ]; then
+            TEXT+=$'\n'
+            TEXT+="🔗 ${LINKS}"
+          fi
 
           # Trim leading/trailing whitespace from YAML multiline inputs
           BODY="$(echo "$BODY" | awk 'NF{found=1} found' | tac | awk 'NF{found=1} found' | tac)"
@@ -89,7 +117,7 @@ runs:
 
           # Footer
           TEXT+=$'\n\n'
-          TEXT+="🔗 <a href=\"${RUN_URL}\">View logs</a>"
+          TEXT+="<a href=\"${RUN_URL}\">→ View logs</a>"
         fi
 
         curl -sf -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
