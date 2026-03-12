@@ -72,13 +72,14 @@ runs:
           TEXT+=$'\n'
           TEXT+="📌 <code>${BRANCH}</code> by ${ACTOR}"
 
-          # Body
+          # Trim leading/trailing whitespace from YAML multiline inputs
+          BODY="$(echo "$BODY" | awk 'NF{found=1} found' | tac | awk 'NF{found=1} found' | tac)"
           if [ -n "$BODY" ]; then
             TEXT+=$'\n\n'
             TEXT+="${BODY}"
           fi
 
-          # Changelog (deploy use case)
+          CHANGELOG="$(echo "$CHANGELOG" | awk 'NF{found=1} found' | tac | awk 'NF{found=1} found' | tac)"
           if [ -n "$CHANGELOG" ]; then
             TEXT+=$'\n\n'
             TEXT+="<b>Changes:</b>"
